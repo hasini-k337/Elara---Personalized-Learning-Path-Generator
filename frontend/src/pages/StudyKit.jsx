@@ -34,9 +34,30 @@ export default function StudyKit() {
       <p className="text-[var(--color-ink-soft)] mb-8">Summary, flashcards, and a worked example, generated from your material.</p>
 
       <section className="card p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-2">Summary</h2>
-        <p className="text-[var(--color-ink-soft)] leading-relaxed">{kit.summary}</p>
-      </section>
+
+        <div className="flex justify-between items-center mb-2">
+
+          <h2 className="text-lg font-semibold">
+            Summary
+          </h2>
+
+
+      <button
+        onClick={() => speak(kit.summary)}
+        className="text-sm"
+      >
+        🔊 Listen
+      </button>
+
+    </div>
+
+
+    <p className="text-[var(--color-ink-soft)] leading-relaxed">
+      {kit.summary}
+    </p>
+
+
+  </section>
 
       <section className="mb-6">
         <h2 className="text-lg font-semibold mb-3">Flashcards</h2>

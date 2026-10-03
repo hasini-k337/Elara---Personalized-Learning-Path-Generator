@@ -133,3 +133,173 @@ def evaluate_quiz(
         "explanations": explanations,
         "passed": score >= 0.75,
     }
+
+DIAGNOSTIC_QUIZ_SYSTEM_PROMPT = """You are an adaptive learning diagnostic quiz generator.
+Given source material covering multiple syllabus topics, create multiple-choice questions
+that measure the student's overall understanding across the syllabus.
+
+Distribute questions across the provided topics as evenly as possible.
+Test understanding, concepts, and application rather than trivia.
+
+Respond ONLY with JSON of this exact shape:
+{
+  "questions": [
+    {
+      "question": "string",
+      "options": ["a", "b", "c", "d"],
+      "correct_index": 0
+    }
+  ]
+}
+"""
+
+
+def generate_diagnostic_quiz(
+    db: Session,
+    llm: LLMProvider,
+    user_id: str,
+    num_questions: int = 10,
+) -> models.QuizAttempt:
+
+    topics = (
+        db.query(models.Topic)
+        .join(models.Document)
+        .filter(models.Document.user_id == user_id)
+        .order_by(models.Topic.order_index)
+        .all()
+    )
+
+    if not topics:
+        raise ValueError("No syllabus topics found")
+
+    # Retrieve course material for every topic.
+    topic_sections = []
+
+    for topic in topics:
+        context = _get_topic_context(
+            llm,
+            user_id,
+            topic.title,
+            top_k=3,
+        )
+
+        topic_sections.append(
+            f"TOPIC: {topic.title}\n{context[:2500]}"
+        )
+
+    source_material = "\n\n---\n\n".join(topic_sections)
+
+    messages = [
+        {
+            "role": "system",
+            "content": DIAGNOSTIC_QUIZ_SYSTEM_PROMPT,
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Number of questions: {num_questions}\n\n"
+                f"Syllabus topics:\n"
+                + "\n".join(f"- {t.title}" for t in topics)
+                + f"\n\nSource material:\n{source_material[:14000]}"
+            ),
+        },
+    ]
+
+    raw = llm.complete(
+        messages,
+        temperature=0.4,
+        max_tokens=3000,
+        json_mode=True,
+    )
+
+    try:
+        parsed = json.loads(raw)
+        questions = parsed.get("questions", [])[:num_questions]
+    except json.JSONDecodeError:
+        questions = []
+
+    if not questions:
+        raise ValueError("Could not generate diagnostic quiz")
+
+    attempt = models.QuizAttempt(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        topic_id=None,
+        questions=questions,
+        answers=None,
+        score=None,
+    )
+
+    db.add(attempt)
+    db.commit()
+    db.refresh(attempt)
+
+    return attempt
+
+def evaluate_diagnostic_quiz(
+    db: Session,
+    llm: LLMProvider,
+    attempt_id: str,
+    user_id: str,
+    answers: list[int],
+) -> dict:
+    attempt = (
+        db.query(models.QuizAttempt)
+        .filter(
+            models.QuizAttempt.id == attempt_id,
+            models.QuizAttempt.user_id == user_id,
+            models.QuizAttempt.topic_id.is_(None),
+        )
+        .first()
+    )
+
+    if not attempt:
+        raise ValueError("Diagnostic quiz not found")
+
+    questions = attempt.questions
+    correct = 0
+    explanations = []
+
+    for i, q in enumerate(questions):
+        user_answer = answers[i] if i < len(answers) else None
+        is_correct = user_answer == q.get("correct_index")
+
+        if is_correct:
+            correct += 1
+        else:
+            explanations.append({
+                "question_index": i,
+                "explanation": (
+                    f"Correct answer: "
+                    f"{q.get('options', [''])[q.get('correct_index', 0)]}"
+                ),
+            })
+
+    score = correct / len(questions) if questions else 0.0
+
+    if score >= 0.75:
+        level = "easy"
+    elif score >= 0.50:
+        level = "medium"
+    else:
+        level = "hard"
+
+    attempt.answers = answers
+    attempt.score = score
+
+    assessment = models.OverallAssessment(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        score=score,
+        level=level,
+    )
+
+    db.add(attempt)
+    db.add(assessment)
+    db.commit()
+
+    return {
+        "score": score,
+        "level": level,
+        "explanations": explanations,
+    }

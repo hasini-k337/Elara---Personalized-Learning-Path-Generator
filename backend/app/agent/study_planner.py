@@ -7,14 +7,16 @@ MASTERY_THRESHOLD = 0.75
 
 def generate_study_plan(db: Session, user_id: str) -> list[models.StudyPlanItem]:
     """
-    Agentic study planner: looks at every topic across the student's uploaded
-    documents, checks mastery scores, and (re)builds an ordered plan:
-      1. Topics with no attempts yet, in document order.
-      2. Topics below the mastery threshold ("needs_remediation") bubble up next.
-      3. Mastered topics are marked complete and dropped from the active plan.
-    This mirrors the doc's "autonomously decides the next best topic" behavior —
-    re-running this after every quiz submission keeps the plan adaptive.
+    Builds a study plan covering every syllabus topic.
+
+    The overall diagnostic level changes pacing/order:
+      easy   -> faster progression, lighter review
+      medium -> balanced progression
+      hard   -> foundational review and more practice
+
+    No topic is removed based on the diagnostic level.
     """
+
     topics = (
         db.query(models.Topic)
         .join(models.Document)
@@ -23,65 +25,95 @@ def generate_study_plan(db: Session, user_id: str) -> list[models.StudyPlanItem]
         .all()
     )
 
+    if not topics:
+        return []
+
+    # Get the student's latest overall diagnostic level.
+    assessment = (
+        db.query(models.OverallAssessment)
+        .filter(models.OverallAssessment.user_id == user_id)
+        .order_by(models.OverallAssessment.created_at.desc())
+        .first()
+    )
+
+    level = assessment.level if assessment else "medium"
+
     scores_by_topic = {
         s.topic_id: s
-        for s in db.query(models.MasteryScore).filter(models.MasteryScore.user_id == user_id).all()
+        for s in db.query(models.MasteryScore)
+        .filter(models.MasteryScore.user_id == user_id)
+        .all()
     }
 
-    # Clear existing plan, rebuild fresh (simple & correct; fine at this scale).
-    db.query(models.StudyPlanItem).filter(models.StudyPlanItem.user_id == user_id).delete()
+    # Clear existing plan and rebuild it.
+    db.query(models.StudyPlanItem).filter(
+        models.StudyPlanItem.user_id == user_id
+    ).delete()
 
-    needs_remediation, not_started, mastered = [], [], []
-    for topic in topics:
-        score = scores_by_topic.get(topic.id)
-        if score is None:
-            not_started.append(topic)
-        elif score.score < MASTERY_THRESHOLD:
-            needs_remediation.append((topic, score))
+    # Keep every topic in the syllabus.
+    # Only the ordering/reason changes according to diagnostic level.
+    if level == "hard":
+        ordered_topics = sorted(
+            topics,
+            key=lambda topic: (
+                scores_by_topic.get(topic.id).score
+                if scores_by_topic.get(topic.id)
+                else 0.0
+            ),
+        )
+        pacing_reason = (
+            "Hard diagnostic level: begin with foundational understanding "
+            "and increase practice before progressing."
+        )
+
+    elif level == "easy":
+        ordered_topics = topics
+        pacing_reason = (
+            "Easy diagnostic level: use a faster progression with concise "
+            "review before moving to deeper applications."
+        )
+
+    else:
+        ordered_topics = topics
+        pacing_reason = (
+            "Medium diagnostic level: use balanced explanations, examples, "
+            "and practice across the syllabus."
+        )
+
+    plan_items = []
+
+    for order, topic in enumerate(ordered_topics):
+        topic_mastery = scores_by_topic.get(topic.id)
+
+        if topic_mastery and topic_mastery.score >= MASTERY_THRESHOLD:
+            status = "mastered"
+            reason = (
+                f"Current topic mastery is {topic_mastery.score:.0%}."
+            )
+        elif topic_mastery:
+            status = "needs_remediation"
+            reason = (
+                f"Current topic mastery is {topic_mastery.score:.0%}, "
+                f"so additional practice is needed."
+            )
         else:
-            mastered.append(topic)
+            status = "pending"
+            reason = "This topic has not been assessed yet."
 
-    plan_items: list[models.StudyPlanItem] = []
-    order = 0
-
-    for topic, score in needs_remediation:
         plan_items.append(
             models.StudyPlanItem(
                 user_id=user_id,
                 topic_id=topic.id,
-                status="needs_remediation",
+                status=status,
                 scheduled_order=order,
-                reason=f"Mastery {score.score:.0%} is below the {MASTERY_THRESHOLD:.0%} threshold.",
+                reason=reason,
             )
         )
-        order += 1
-
-    for topic in not_started:
-        plan_items.append(
-            models.StudyPlanItem(
-                user_id=user_id,
-                topic_id=topic.id,
-                status="pending",
-                scheduled_order=order,
-                reason="Not yet studied.",
-            )
-        )
-        order += 1
-
-    for topic in mastered:
-        plan_items.append(
-            models.StudyPlanItem(
-                user_id=user_id,
-                topic_id=topic.id,
-                status="mastered",
-                scheduled_order=order,
-                reason="Mastery threshold met.",
-            )
-        )
-        order += 1
 
     db.add_all(plan_items)
     db.commit()
+
     for item in plan_items:
         db.refresh(item)
+
     return plan_items

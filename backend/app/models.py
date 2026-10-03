@@ -41,6 +41,7 @@ class Document(Base):
     id = Column(String, primary_key=True, default=gen_uuid)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     filename = Column(String, nullable=False)
+    document_type = Column(String, default="syllabus", nullable=False)
     status = Column(String, default="processing")  # processing | ready | failed
     uploaded_at = Column(DateTime, default=datetime.utcnow)
 
@@ -96,7 +97,7 @@ class QuizAttempt(Base):
 
     id = Column(String, primary_key=True, default=gen_uuid)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    topic_id = Column(String, ForeignKey("topics.id"), nullable=False)
+    topic_id = Column(String, ForeignKey("topics.id"), nullable=True)
     questions = Column(JSON, nullable=False)   # list of {question, options, correct_index}
     answers = Column(JSON, nullable=True)      # list of selected indices
     score = Column(Float, nullable=True)       # 0.0 - 1.0
@@ -118,3 +119,14 @@ class ChatMessage(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="chat_messages")
+
+class OverallAssessment(Base):
+    __tablename__ = "overall_assessments"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    score = Column(Float, nullable=False)
+    level = Column(String, nullable=False)  # easy | medium | hard
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")

@@ -14,9 +14,9 @@ from app.llm.base import LLMProvider
 def get_llm_provider() -> LLMProvider:
     settings = get_settings()
 
-    if settings.llm_provider == "grok":
-        from app.llm.providers.grok import GrokProvider
-        return GrokProvider(api_key=settings.grok_api_key, model=settings.llm_model)
+    if settings.llm_provider == "groq":
+        from app.llm.providers.groq_provider import GroqProvider
+        return GroqProvider(api_key=settings.groq_api_key, model=settings.llm_model)
 
     if settings.llm_provider == "openai":
         from app.llm.providers.openai_provider import OpenAIProvider

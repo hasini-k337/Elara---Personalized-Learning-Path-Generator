@@ -11,6 +11,7 @@ const STATUS_COPY = {
 export default function Upload() {
   const [file, setFile] = useState(null)
   const [dragOver, setDragOver] = useState(false)
+  const [documentType, setDocumentType] = useState('syllabus')
   const [status, setStatus] = useState(null) // { document_id, status }
   const [error, setError] = useState(null)
   const [uploading, setUploading] = useState(false)
@@ -37,7 +38,7 @@ export default function Upload() {
     setError(null)
     setUploading(true)
     try {
-      const res = await api.uploadSyllabus(file)
+      const res = await api.uploadSyllabus(file, documentType)
       setStatus({ document_id: res.document_id, status: res.status })
       pollStatus(res.document_id)
     } catch (err) {
@@ -47,10 +48,9 @@ export default function Upload() {
     }
   }
 
-  const onGeneratePlan = async () => {
+  const onStartDiagnostic = () => {
     if (!status?.document_id) return
-    await api.generateStudyPlan(status.document_id)
-    navigate('/')
+    navigate('/diagnostic')
   }
 
   const onDrop = (e) => {
@@ -62,10 +62,47 @@ export default function Upload() {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
       <h1 className="text-3xl font-semibold mb-2">Add course material</h1>
+
       <p className="text-[var(--color-ink-soft)] mb-8">
-        Upload a syllabus or lecture notes (PDF, JSON, or text). We'll parse it into topics and
-        sub-topics, then you can generate a study plan.
+        Upload your syllabus to build the learning path, or add lecture notes and
+        course material to give Elara grounded study content.
       </p>
+
+      <div className="card p-4 mb-6">
+        <p className="font-medium mb-3">What are you uploading?</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setDocumentType('syllabus')}
+            className={`text-left p-4 rounded-lg border transition-colors ${
+              documentType === 'syllabus'
+                ? 'border-[var(--color-indigo)] bg-[var(--color-indigo-tint)]'
+                : 'border-[var(--color-border)]'
+            }`}
+         >
+            <p className="font-medium">Syllabus</p>
+            <p className="text-sm text-[var(--color-ink-soft)] mt-1">
+              Builds your topics, diagnostic quiz, and study plan.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDocumentType('course_material')}
+            className={`text-left p-4 rounded-lg border transition-colors ${
+              documentType === 'course_material'
+                ? 'border-[var(--color-indigo)] bg-[var(--color-indigo-tint)]'
+                : 'border-[var(--color-border)]'
+            }`}
+          >
+            <p className="font-medium">Course material</p>
+            <p className="text-sm text-[var(--color-ink-soft)] mt-1">
+            Adds lecture notes or textbook material to Elara's knowledge base.
+            </p>
+          </button>
+        </div>
+      </div>
 
       <div
         onDragOver={(e) => {
@@ -106,14 +143,31 @@ export default function Upload() {
       {status && (
         <div className="card p-5 mt-6 flex items-center justify-between">
           <div>
-            <p className="font-medium">Ingestion status</p>
-            <span className={`inline-block mt-1 text-xs font-medium px-2 py-1 rounded-full ${STATUS_COPY[status.status]?.tone ?? 'badge-pending'}`}>
-              {STATUS_COPY[status.status]?.label ?? status.status}
+            <p className="font-medium">
+              {documentType === 'syllabus'
+                ? 'Syllabus ingestion'
+                : 'Course material ingestion'}
+            </p>
+
+            <span
+              className={`inline-block mt-1 text-xs font-medium px-2 py-1 rounded-full ${
+                STATUS_COPY[status.status]?.tone ?? 'badge-pending'
+              }`}
+            >
+              {status.status === 'ready'
+                ? documentType === 'syllabus'
+                  ? 'Ready — topics extracted'
+                  : 'Added to Elara’s knowledge base'
+                : STATUS_COPY[status.status]?.label ?? status.status}
             </span>
           </div>
-          {status.status === 'ready' && (
-            <button onClick={onGeneratePlan} className="btn-primary px-4 py-2 text-sm">
-              Generate study plan →
+
+          {status.status === 'ready' && documentType === 'syllabus' && (
+            <button
+              onClick={onStartDiagnostic}
+              className="btn-primary px-4 py-2 text-sm"
+            >
+              Start diagnostic quiz →
             </button>
           )}
         </div>

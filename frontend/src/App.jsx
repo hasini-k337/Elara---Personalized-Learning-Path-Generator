@@ -5,9 +5,11 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
 import Upload from './pages/Upload'
+import DiagnosticQuiz from './pages/DiagnosticQuiz'
 import Chat from './pages/Chat'
 import Quiz from './pages/Quiz'
 import StudyKit from './pages/StudyKit'
+import Study from './pages/Study'
 import Progress from './pages/Progress'
 
 export default function App() {
@@ -33,6 +35,16 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/diagnostic"
+          element={
+            <ProtectedRoute>
+              <DiagnosticQuiz />
+            </ProtectedRoute>
+          }
+        />
+        
         <Route
           path="/chat"
           element={
@@ -48,6 +60,14 @@ export default function App() {
               <Quiz />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/study/:topicId"
+          element={
+            <ProtectedRoute>
+              <Study />
+            </ProtectedRoute>
+        }
         />
         <Route
           path="/study-kit/:topicId"

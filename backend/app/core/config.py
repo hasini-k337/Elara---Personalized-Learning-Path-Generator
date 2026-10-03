@@ -16,10 +16,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # --- LLM provider selection (provider-independent switch) ---
-    llm_provider: Literal["grok", "openai", "ollama", "mock"] = "grok"
-    llm_model: str = "grok-2-latest"
+    llm_provider: Literal["groq", "openai", "ollama", "mock"] = "groq"
+    llm_model: str = "openai/gpt-oss-20b"
 
-    grok_api_key: str | None = None
+    groq_api_key: str | None = None
     openai_api_key: str | None = None
 
     ollama_base_url: str = "http://localhost:11434"

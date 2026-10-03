@@ -59,6 +59,21 @@ class QuizGenerateRequest(BaseModel):
     topic_id: str
     num_questions: int = 5
 
+class DiagnosticQuizGenerateRequest(BaseModel):
+    num_questions: int = 10
+
+
+class DiagnosticQuizOut(BaseModel):
+    quiz_id: str
+    questions: list[dict]
+
+
+class DiagnosticQuizResultOut(BaseModel):
+    quiz_id: str
+    score: float
+    level: str
+    explanations: list[dict]
+
 
 class QuizQuestion(BaseModel):
     question: str
@@ -135,3 +150,15 @@ class ProgressTrend(BaseModel):
 class ProgressOut(BaseModel):
     overall_mastery: float
     trends: list[ProgressTrend]
+# ---- Study ----
+class StudyRequest(BaseModel):
+    topic_id: str
+
+
+class StudyOut(BaseModel):
+    topic_id: str
+    topic_title: str
+    content: str
+    citations: list[dict] = []
+
+

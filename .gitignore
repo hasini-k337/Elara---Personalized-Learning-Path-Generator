@@ -24,3 +24,5 @@ postgres_data/
 .DS_Store
 .vscode/
 .idea/
+
+backend/tutor.db

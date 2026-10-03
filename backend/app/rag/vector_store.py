@@ -57,12 +57,24 @@ def query_chunks(
     query_embedding: list[float],
     user_id: str,
     top_k: int = 5,
+    document_type: str | None = None,
 ) -> dict:
     collection = get_collection()
+
+    where = {"user_id": user_id}
+
+    if document_type:
+        where = {
+            "$and": [
+                {"user_id": user_id},
+                {"document_type": document_type},
+            ]
+        }
+
     return collection.query(
         query_embeddings=[query_embedding],
         n_results=top_k,
-        where={"user_id": user_id},
+        where=where,
     )
 
 

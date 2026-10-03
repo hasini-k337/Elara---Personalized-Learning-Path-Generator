@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.database import Base, engine
-from app.routers import auth, syllabus, study_plan, quiz, study_kit, remediation, chat, progress, topics
+from app.routers import auth, syllabus, study_plan, quiz, study_kit, study, remediation, chat, progress, topics
 
 settings = get_settings()
 
@@ -37,6 +37,7 @@ app.include_router(syllabus.router)
 app.include_router(study_plan.router)
 app.include_router(quiz.router)
 app.include_router(study_kit.router)
+app.include_router(study.router)
 app.include_router(remediation.router)
 app.include_router(chat.router)
 app.include_router(progress.router)

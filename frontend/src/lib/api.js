@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001'
+﻿const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 class ApiError extends Error {
   constructor(message, status, detail) {
@@ -9,12 +9,12 @@ class ApiError extends Error {
 }
 
 function getToken() {
-  return localStorage.getItem('pathwise_token')
+  return localStorage.getItem('elara_token')
 }
 
 export function setToken(token) {
-  if (token) localStorage.setItem('pathwise_token', token)
-  else localStorage.removeItem('pathwise_token')
+  if (token) localStorage.setItem('elara_token', token)
+  else localStorage.removeItem('elara_token')
 }
 
 async function request(path, { method = 'GET', body, isForm = false, auth = true } = {}) {
@@ -54,17 +54,18 @@ export const api = {
   login: (payload) => request('/auth/login', { method: 'POST', body: payload, auth: false }),
   me: () => request('/auth/me'),
 
-  uploadSyllabus: (file) => {
+  uploadSyllabus: (file, documentType = 'syllabus') => {
     const form = new FormData()
     form.append('file', file)
+    form.append('document_type', documentType)
     return request('/syllabus/upload', { method: 'POST', body: form, isForm: true })
   },
   syllabusStatus: (documentId) => request(`/syllabus/${documentId}/status`),
   listSyllabi: () => request('/syllabus/'),
   deleteSyllabus: (documentId) => request(`/syllabus/${documentId}`, { method: 'DELETE' }),
 
-  generateStudyPlan: (documentId) =>
-    request('/study-plan/generate', { method: 'POST', body: { document_id: documentId } }),
+  generateStudyPlan: () =>
+    request('/study-plan/generate', { method: 'POST', body: {} }),
   getStudyPlan: () => request('/study-plan/'),
 
   listTopics: (documentId) =>
@@ -74,8 +75,22 @@ export const api = {
     request('/quiz/generate', { method: 'POST', body: { topic_id: topicId } }),
   submitQuiz: (quizId, answers) =>
     request('/quiz/submit', { method: 'POST', body: { quiz_id: quizId, answers } }),
+  generateDiagnosticQuiz: (numQuestions = 10) =>
+    request('/quiz/diagnostic/generate', {
+      method: 'POST',
+      body: { num_questions: numQuestions },
+    }),
+
+  submitDiagnosticQuiz: (quizId, answers) =>
+    request('/quiz/diagnostic/submit', {
+      method: 'POST',
+      body: { quiz_id: quizId, answers },
+    }),
   explainAnswer: (quizId, questionIndex) =>
     request(`/quiz/${quizId}/explain-answer/${questionIndex}`),
+
+  generateStudy: (topicId) =>
+    request('/study/generate', { method: 'POST', body: { topic_id: topicId } }),
 
   generateStudyKit: (topicId) =>
     request('/study-kit/generate-advanced', { method: 'POST', body: { topic_id: topicId } }),
@@ -91,3 +106,4 @@ export const api = {
 }
 
 export { ApiError, getToken }
+

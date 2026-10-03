@@ -2,7 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app import models, schemas
-from app.agent.quiz_tools import generate_quiz, evaluate_quiz
+from app.agent.quiz_tools import (
+    generate_quiz,
+    evaluate_quiz,
+    generate_diagnostic_quiz,
+    evaluate_diagnostic_quiz,
+)
 from app.agent.study_planner import MASTERY_THRESHOLD
 from app.core.security import get_current_user
 from app.database import get_db
@@ -51,6 +56,67 @@ def submit(
         passed=result["passed"],
         explanations=result["explanations"],
         remediation_triggered=remediation_triggered,
+    )
+
+@router.post("/diagnostic/generate", response_model=schemas.DiagnosticQuizOut)
+def generate_diagnostic(
+    payload: schemas.DiagnosticQuizGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    llm = get_llm_provider()
+
+    try:
+        attempt = generate_diagnostic_quiz(
+            db,
+            llm,
+            current_user.id,
+            payload.num_questions,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    sanitized = [
+        {
+            "question": q["question"],
+            "options": q["options"],
+        }
+        for q in attempt.questions
+    ]
+
+    return schemas.DiagnosticQuizOut(
+        quiz_id=attempt.id,
+        questions=sanitized,
+    )
+
+
+@router.post(
+    "/diagnostic/submit",
+    response_model=schemas.DiagnosticQuizResultOut,
+)
+def submit_diagnostic(
+    payload: schemas.QuizSubmitRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    llm = get_llm_provider()
+
+    try:
+        result = evaluate_diagnostic_quiz(
+            db,
+            llm,
+            payload.quiz_id,
+            current_user.id,
+            payload.answers,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return schemas.DiagnosticQuizResultOut(
+        quiz_id=payload.quiz_id,
+        score=result["score"],
+        level=result["level"],
+        explanations=result["explanations"],
     )
 
 

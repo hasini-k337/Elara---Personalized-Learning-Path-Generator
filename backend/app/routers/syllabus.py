@@ -2,7 +2,7 @@ import os
 import shutil
 import uuid
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Form
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -37,6 +37,7 @@ ALLOWED_EXTENSIONS = {".pdf", ".json", ".txt"}
 def upload_syllabus(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    document_type: str = Form("syllabus"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -44,7 +45,15 @@ def upload_syllabus(
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
 
-    document = models.Document(user_id=current_user.id, filename=file.filename, status="processing")
+    if document_type not in {"syllabus", "course_material"}:
+        raise HTTPException(status_code=400, detail="Invalid document type")
+
+    document = models.Document(
+        user_id=current_user.id,
+        filename=file.filename,
+        document_type=document_type,
+        status="processing",
+    )
     db.add(document)
     db.commit()
     db.refresh(document)

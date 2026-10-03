@@ -20,7 +20,7 @@ export default function Nav() {
             <circle cx="44" cy="40" r="5" fill="#F6EFDC" />
             <path d="M32 20 L20 40 L44 40 Z" stroke="#B8912B" strokeWidth="2" fill="none" />
           </svg>
-          <span className="font-[var(--font-display)] text-lg font-semibold hidden sm:inline">Pathwise</span>
+          <span className="font-[var(--font-display)] text-lg font-semibold hidden sm:inline">Elara</span>
         </NavLink>
 
         {user && (
